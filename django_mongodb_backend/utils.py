@@ -45,6 +45,11 @@ def parse_uri(uri, conn_max_age=0, test=None):
             host, port = nodelist[0]
         elif len(nodelist) > 1:
             host = ",".join([f"{host}:{port}" for host, port in nodelist])
+    if not uri["database"]:
+        raise ImproperlyConfigured(
+            "You must include the name of your database in the connection "
+            "string passed to parse_uri(), e.g. mongodb://host/db_name?query_string"
+        )
     settings_dict = {
         "ENGINE": "django_mongodb_backend",
         "NAME": uri["database"],
