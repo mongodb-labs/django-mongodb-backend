@@ -4,6 +4,7 @@ from django.core import checks
 from django.core.exceptions import FieldDoesNotExist
 from django.db import models
 from django.db.models import lookups
+from django.db.models.expressions import Col
 from django.db.models.fields.related import lazy_related_operation
 from django.db.models.lookups import Transform
 
@@ -194,14 +195,22 @@ class EMFExact(lookups.Exact):
     def as_mql(self, compiler, connection):
         lhs_mql = process_lhs(self, compiler, connection)
         value = process_rhs(self, compiler, connection)
-        if isinstance(value, models.Model):
-            value, emf_data = self.model_to_dict(value)
-            prefix = self.lhs.as_mql(compiler, connection)
-            # Get conditions for top-level EmbeddedModelField.
-            conditions = [{"$eq": [f"{prefix}.{k}", v]} for k, v in value.items()]
-            # Get conditions for any nested EmbeddedModelFields.
-            conditions += self.get_conditions(emf_data, prefix)
-            return {"$and": conditions}
+        if isinstance(self.lhs, Col) or (
+            isinstance(self.lhs, KeyTransform)
+            and isinstance(self.lhs.ref_field, EmbeddedModelField)
+        ):
+            if isinstance(value, models.Model):
+                value, emf_data = self.model_to_dict(value)
+                prefix = self.lhs.as_mql(compiler, connection)
+                # Get conditions for top-level EmbeddedModelField.
+                conditions = [{"$eq": [f"{prefix}.{k}", v]} for k, v in value.items()]
+                # Get conditions for any nested EmbeddedModelFields.
+                conditions += self.get_conditions(emf_data, prefix)
+                return {"$and": conditions}
+            raise TypeError(
+                "An EmbeddedModelField must be queried using a model instance, got %s."
+                % type(value)
+            )
         return connection.mongo_operators[self.lookup_name](lhs_mql, value)
 
 

@@ -159,6 +159,17 @@ class QueryingTests(TestCase):
         self.assertCountEqual(A.objects.filter(b__c__d=d2), [a2])
         self.assertCountEqual(A.objects.filter(b__c__d__nullable_e=e2), [a2])
 
+    def test_exact_validates_argument(self):
+        msg = "An EmbeddedModelField must be queried using a model instance, got <class 'dict'>."
+        with self.assertRaisesMessage(TypeError, msg):
+            str(A.objects.filter(b={}))
+        with self.assertRaisesMessage(TypeError, msg):
+            str(A.objects.filter(b__c={}))
+        with self.assertRaisesMessage(TypeError, msg):
+            str(A.objects.filter(b__c__d={}))
+        with self.assertRaisesMessage(TypeError, msg):
+            str(A.objects.filter(b__c__d__e={}))
+
     def test_embedded_json_field_lookups(self):
         objs = [
             Holder.objects.create(
