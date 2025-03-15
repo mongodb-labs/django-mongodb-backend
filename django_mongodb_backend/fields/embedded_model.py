@@ -173,7 +173,7 @@ class EMFExact(lookups.Exact):
             data[f.name] = value
         return data, emf_data
 
-    def get_conditions(self, emf_data, prefix):
+    def get_conditions(self, emf_data, prefix=None):
         """
         Recursively transform a dictionary of {"field_name": {<model_to_dict>}}
         lookups into MQL. `prefix` tracks the string that must be appended to
@@ -182,7 +182,7 @@ class EMFExact(lookups.Exact):
         conditions = []
         for k, v in emf_data.items():
             v, emf_data = v
-            subprefix = f"{prefix}.{k}"
+            subprefix = f"{prefix}.{k}" if prefix else k
             conditions += self.get_conditions(emf_data, subprefix)
             if v is not None:
                 # Match all field of the EmbeddedModelField.
@@ -202,10 +202,8 @@ class EMFExact(lookups.Exact):
             if isinstance(value, models.Model):
                 value, emf_data = self.model_to_dict(value)
                 prefix = self.lhs.as_mql(compiler, connection)
-                # Get conditions for top-level EmbeddedModelField.
-                conditions = [{"$eq": [f"{prefix}.{k}", v]} for k, v in value.items()]
                 # Get conditions for any nested EmbeddedModelFields.
-                conditions += self.get_conditions(emf_data, prefix)
+                conditions = self.get_conditions({prefix: (value, emf_data)})
                 return {"$and": conditions}
             raise TypeError(
                 "An EmbeddedModelField must be queried using a model instance, got %s."
